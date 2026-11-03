@@ -22,41 +22,55 @@ jobs:
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
 
+          # 1. Create gradle.properties (Crucial for modern Android)
+          cat << 'EOF' > gradle.properties
+          android.useAndroidX=true
+          android.nonTransitiveRClass=true
+          org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+          EOF
+
+          # 2. Create settings.gradle
           cat << 'EOF' > settings.gradle
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
           rootProject.name = "MindfulLock"
           include ':app'
           EOF
 
+          # 3. Create Project-level build.gradle
           cat << 'EOF' > build.gradle
-          buildscript {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
-              dependencies {
-                  classpath 'com.android.tools.build:gradle:8.1.1'
-                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.8.20'
-              }
-          }
-          allprojects {
-              repositories {
-                  google()
-                  mavenCentral()
-              }
+          plugins {
+              id 'com.android.application' version '8.1.1' apply false
+              id 'org.jetbrains.kotlin.android' version '1.8.20' apply false
           }
           EOF
 
+          # 4. Create App-level build.gradle
           cat << 'EOF' > app/build.gradle
-          apply plugin: 'com.android.application'
-          apply plugin: 'kotlin-android'
+          plugins {
+              id 'com.android.application'
+              id 'org.jetbrains.kotlin.android'
+          }
 
           android {
               namespace 'com.ansaridata.mindfullock'
-              compileSdkVersion 34
+              compileSdk 34
               defaultConfig {
                   applicationId "com.ansaridata.mindfullock"
-                  minSdkVersion 24
-                  targetSdkVersion 34
+                  minSdk 24
+                  targetSdk 34
                   versionCode 1
                   versionName "1.0"
               }
@@ -77,6 +91,7 @@ jobs:
           }
           EOF
 
+          # 5. Create AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -96,12 +111,14 @@ jobs:
           </manifest>
           EOF
 
+          # 6. Create strings.xml
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">MindfulLock</string>
           </resources>
           EOF
 
+          # 7. Create activity_main.xml
           cat << 'EOF' > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -164,6 +181,7 @@ jobs:
           </LinearLayout>
           EOF
 
+          # 8. Create MainActivity.kt
           cat << 'EOF' > app/src/main/java/com/ansaridata/mindfullock/MainActivity.kt
           package com.ansaridata.mindfullock
 
@@ -223,8 +241,10 @@ jobs:
           }
           EOF
 
-      - name: Build APK
-        run: gradle assembleDebug --no-daemon
+      - name: Setup Gradle Wrapper & Build APK
+        run: |
+          gradle wrapper --gradle-version 8.3
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
