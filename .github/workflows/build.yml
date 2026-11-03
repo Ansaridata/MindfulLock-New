@@ -19,13 +19,17 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Generate Source Code
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Scaffold Android Project & Source
         run: |
           mkdir -p app/src/main/java/com/example/mindfullock
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/xml
 
+          # settings.gradle.kts
           cat << 'EOF' > settings.gradle.kts
           pluginManagement {
               repositories {
@@ -45,6 +49,7 @@ jobs:
           include(":app")
           EOF
 
+          # Root build.gradle.kts
           cat << 'EOF' > build.gradle.kts
           plugins {
               id("com.android.application") version "8.2.2" apply false
@@ -52,6 +57,7 @@ jobs:
           }
           EOF
 
+          # App build.gradle.kts
           cat << 'EOF' > app/build.gradle.kts
           plugins {
               id("com.android.application")
@@ -91,6 +97,7 @@ jobs:
           }
           EOF
 
+          # AndroidManifest.xml
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -133,6 +140,7 @@ jobs:
           </manifest>
           EOF
 
+          # device_admin_policies.xml
           cat << 'EOF' > app/src/main/res/xml/device_admin_policies.xml
           <?xml version="1.0" encoding="utf-8"?>
           <device-admin xmlns:android="http://schemas.android.com/apk/res/android">
@@ -142,12 +150,14 @@ jobs:
           </device-admin>
           EOF
 
+          # strings.xml
           cat << 'EOF' > app/src/main/res/values/strings.xml
           <resources>
               <string name="app_name">MindfulLock</string>
           </resources>
           EOF
 
+          # Layout: activity_main.xml
           cat << 'EOF' > app/src/main/res/layout/activity_main.xml
           <?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -246,6 +256,7 @@ jobs:
           </LinearLayout>
           EOF
 
+          # LockAdminReceiver.kt
           cat << 'EOF' > app/src/main/java/com/example/mindfullock/LockAdminReceiver.kt
           package com.example.mindfullock
 
@@ -266,6 +277,7 @@ jobs:
           }
           EOF
 
+          # SessionService.kt
           cat << 'EOF' > app/src/main/java/com/example/mindfullock/SessionService.kt
           package com.example.mindfullock
 
@@ -356,6 +368,7 @@ jobs:
           }
           EOF
 
+          # MainActivity.kt
           cat << 'EOF' > app/src/main/java/com/example/mindfullock/MainActivity.kt
           package com.example.mindfullock
 
@@ -463,11 +476,15 @@ jobs:
           }
           EOF
 
-      - name: Build APK with Gradle
-        uses: gradle/gradle-build-action@v3
-        with:
-          gradle-version: '8.5'
-          arguments: assembleDebug --stacktrace
+      - name: Install Gradle & Build APK
+        run: |
+          # Download Gradle 8.5 binary directly
+          wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
+          unzip -q gradle-8.5-bin.zip
+          export PATH=$PWD/gradle-8.5/bin:$PATH
+
+          # Build the APK directly
+          gradle assembleDebug --stacktrace
 
       - name: Upload Finished APK
         uses: actions/upload-artifact@v4
