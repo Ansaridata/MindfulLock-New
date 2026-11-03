@@ -19,18 +19,15 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Scaffold Android Project & Source
+      - name: Generate Android Project & Build APK
         run: |
           mkdir -p app/src/main/java/com/example/mindfullock
           mkdir -p app/src/main/res/layout
           mkdir -p app/src/main/res/values
           mkdir -p app/src/main/res/xml
 
-          # settings.gradle.kts
-          cat << 'EOF' > settings.gradle.kts
+          # settings.gradle
+          cat << 'EOF' > settings.gradle
           pluginManagement {
               repositories {
                   google()
@@ -46,54 +43,64 @@ jobs:
               }
           }
           rootProject.name = "MindfulLock"
-          include(":app")
+          include ':app'
           EOF
 
-          # Root build.gradle.kts
-          cat << 'EOF' > build.gradle.kts
-          plugins {
-              id("com.android.application") version "8.2.2" apply false
-              id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+          # Root build.gradle
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+                  classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
           }
           EOF
 
-          # App build.gradle.kts
-          cat << 'EOF' > app/build.gradle.kts
-          plugins {
-              id("com.android.application")
-              id("org.jetbrains.kotlin.android")
-          }
+          # app/build.gradle
+          cat << 'EOF' > app/build.gradle
+          apply plugin: 'com.android.application'
+          apply plugin: 'kotlin-android'
 
           android {
-              namespace = "com.example.mindfullock"
-              compileSdk = 34
+              namespace 'com.example.mindfullock'
+              compileSdk 34
 
               defaultConfig {
-                  applicationId = "com.example.mindfullock"
-                  minSdk = 26
-                  targetSdk = 34
-                  versionCode = 1
-                  versionName = "1.0"
+                  applicationId "com.example.mindfullock"
+                  minSdk 26
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
               }
 
               buildTypes {
                   release {
-                      isMinifyEnabled = false
+                      minifyEnabled false
                   }
               }
               compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_17
-                  targetCompatibility = JavaVersion.VERSION_17
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
               }
               kotlinOptions {
-                  jvmTarget = "17"
+                  jvmTarget = '17'
               }
           }
 
           dependencies {
-              implementation("androidx.core:core-ktx:1.12.0")
-              implementation("androidx.appcompat:appcompat:1.6.1")
-              implementation("com.google.android.material:material:1.11.0")
+              implementation 'androidx.core:core-ktx:1.12.0'
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
           }
           EOF
 
@@ -103,7 +110,6 @@ jobs:
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
               <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-              <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
               <uses-permission android:name="android.permission.WAKE_LOCK" />
               <uses-permission android:name="android.permission.VIBRATE" />
 
@@ -134,7 +140,6 @@ jobs:
                   </receiver>
                   <service
                       android:name=".SessionService"
-                      android:foregroundServiceType="specialUse"
                       android:exported="false" />
               </application>
           </manifest>
@@ -268,11 +273,11 @@ jobs:
           class LockAdminReceiver : DeviceAdminReceiver() {
               override fun onEnabled(context: Context, intent: Intent) {
                   super.onEnabled(context, intent)
-                  Toast.makeText(context, "MindfulLock: Protection Enabled", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, "MindfulLock Active", Toast.LENGTH_SHORT).show()
               }
               override fun onDisabled(context: Context, intent: Intent) {
                   super.onDisabled(context, intent)
-                  Toast.makeText(context, "MindfulLock: Protection Disabled", Toast.LENGTH_SHORT).show()
+                  Toast.makeText(context, "MindfulLock Disabled", Toast.LENGTH_SHORT).show()
               }
           }
           EOF
@@ -308,16 +313,16 @@ jobs:
 
               override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
                   val totalSeconds = intent?.getIntExtra("SECONDS", 60) ?: 60
-                  val reason = intent?.getStringExtra("REASON") ?: "Intentional Session"
+                  val reason = intent?.getStringExtra("REASON") ?: "Mindful Session"
 
-                  val notification = createNotification("Mindful Session: $reason", "Remaining: ${totalSeconds}s")
+                  val notification = createNotification("Active: $reason", "${totalSeconds}s remaining")
                   startForeground(101, notification)
 
                   timer?.cancel()
                   timer = object : CountDownTimer((totalSeconds * 1000).toLong(), 1000) {
                       override fun onTick(millisUntilFinished: Long) {
                           val secRemaining = millisUntilFinished / 1000
-                          updateNotification("Active: $reason", "Remaining: ${secRemaining}s")
+                          updateNotification("Active: $reason", "${secRemaining}s remaining")
                       }
 
                       override fun onFinish() {
@@ -459,7 +464,7 @@ jobs:
                           putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, adminComponent)
                           putExtra(
                               DevicePolicyManager.EXTRA_ADD_EXPLANATION,
-                              "Enable MindfulLock to lock the screen when your time runs out."
+                              "Enable MindfulLock to lock the screen when time expires."
                           )
                       }
                       startActivity(intent)
@@ -476,15 +481,13 @@ jobs:
           }
           EOF
 
-      - name: Install Gradle & Build APK
-        run: |
-          # Download Gradle 8.5 binary directly
+          # Download Gradle 8.5 binary and compile
           wget -q https://services.gradle.org/distributions/gradle-8.5-bin.zip
           unzip -q gradle-8.5-bin.zip
           export PATH=$PWD/gradle-8.5/bin:$PATH
 
-          # Build the APK directly
-          gradle assembleDebug --stacktrace
+          # Build APK using pre-installed Android SDK
+          gradle assembleDebug --no-daemon
 
       - name: Upload Finished APK
         uses: actions/upload-artifact@v4
